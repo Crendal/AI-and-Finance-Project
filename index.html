@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>포트폴리오 트래커</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- 사이드바 -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>📊 포트폴리오</h1>
+                <span class="logo-sub">Portfolio Tracker</span>
+            </div>
+            <nav>
+                <button class="nav-btn active" data-page="dashboard">
+                    <span class="nav-icon">📈</span> 대시보드
+                </button>
+                <button class="nav-btn" data-page="holdings">
+                    <span class="nav-icon">💼</span> 보유 종목
+                </button>
+                <button class="nav-btn" data-page="transactions">
+                    <span class="nav-icon">📋</span> 거래 내역
+                </button>
+                <button class="nav-btn" data-page="add">
+                    <span class="nav-icon">➕</span> 거래 추가
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="btn-export" class="btn-secondary">데이터 내보내기</button>
+                <button id="btn-import" class="btn-secondary">데이터 가져오기</button>
+                <input type="file" id="file-import" accept=".json" style="display:none">
+            </div>
+        </aside>
+
+        <!-- 메인 콘텐츠 -->
+        <main class="main-content">
+            <!-- 대시보드 페이지 -->
+            <section id="page-dashboard" class="page active">
+                <h2 class="page-title">대시보드</h2>
+
+                <!-- 요약 카드 -->
+                <div class="summary-cards">
+                    <div class="card summary-card">
+                        <div class="card-label">총 평가금액</div>
+                        <div class="card-value" id="total-value">₩0</div>
+                        <div class="card-sub" id="total-value-usd">$0</div>
+                    </div>
+                    <div class="card summary-card">
+                        <div class="card-label">총 투자금액</div>
+                        <div class="card-value" id="total-invested">₩0</div>
+                        <div class="card-sub" id="total-invested-usd">$0</div>
+                    </div>
+                    <div class="card summary-card">
+                        <div class="card-label">총 수익/손실</div>
+                        <div class="card-value" id="total-pnl">₩0</div>
+                        <div class="card-sub" id="total-pnl-pct">0%</div>
+                    </div>
+                    <div class="card summary-card">
+                        <div class="card-label">보유 종목 수</div>
+                        <div class="card-value" id="total-holdings">0</div>
+                        <div class="card-sub" id="total-transactions">총 거래: 0건</div>
+                    </div>
+                </div>
+
+                <!-- 차트 영역 -->
+                <div class="charts-row">
+                    <div class="card chart-card chart-large">
+                        <div class="card-header">
+                            <h3>포트폴리오 가치 추이 (NAV)</h3>
+                            <div class="chart-controls">
+                                <button class="chart-period active" data-period="all">전체</button>
+                                <button class="chart-period" data-period="1y">1년</button>
+                                <button class="chart-period" data-period="6m">6개월</button>
+                                <button class="chart-period" data-period="3m">3개월</button>
+                                <button class="chart-period" data-period="1m">1개월</button>
+                            </div>
+                        </div>
+                        <canvas id="chart-nav"></canvas>
+                    </div>
+                    <div class="card chart-card chart-small">
+                        <h3>자산 배분</h3>
+                        <canvas id="chart-allocation"></canvas>
+                    </div>
+                </div>
+
+                <!-- 보유종목 간략 테이블 -->
+                <div class="card">
+                    <h3>보유 종목 요약</h3>
+                    <div class="table-wrapper">
+                        <table id="dashboard-holdings-table">
+                            <thead>
+                                <tr>
+                                    <th>종목</th>
+                                    <th>수량</th>
+                                    <th>평균 매수가</th>
+                                    <th>현재가</th>
+                                    <th>평가금액</th>
+                                    <th>수익률</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 보유 종목 페이지 -->
+            <section id="page-holdings" class="page">
+                <h2 class="page-title">보유 종목</h2>
+                <div class="card">
+                    <div class="table-actions">
+                        <button id="btn-update-prices" class="btn-primary">현재가 일괄 업데이트</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="holdings-table">
+                            <thead>
+                                <tr>
+                                    <th>종목코드</th>
+                                    <th>종목명</th>
+                                    <th>보유수량</th>
+                                    <th>평균 매수가</th>
+                                    <th>현재가</th>
+                                    <th>평가금액</th>
+                                    <th>투자금액</th>
+                                    <th>수익/손실</th>
+                                    <th>수익률</th>
+                                    <th>비중</th>
+                                    <th>관리</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 거래 내역 페이지 -->
+            <section id="page-transactions" class="page">
+                <h2 class="page-title">거래 내역</h2>
+                <div class="card">
+                    <div class="table-actions">
+                        <div class="filter-group">
+                            <select id="filter-ticker">
+                                <option value="">전체 종목</option>
+                            </select>
+                            <select id="filter-type">
+                                <option value="">전체 유형</option>
+                                <option value="buy">매수</option>
+                                <option value="sell">매도</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="transactions-table">
+                            <thead>
+                                <tr>
+                                    <th>날짜</th>
+                                    <th>유형</th>
+                                    <th>종목코드</th>
+                                    <th>종목명</th>
+                                    <th>수량</th>
+                                    <th>단가</th>
+                                    <th>수수료</th>
+                                    <th>총 금액</th>
+                                    <th>메모</th>
+                                    <th>관리</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 거래 추가 페이지 -->
+            <section id="page-add" class="page">
+                <h2 class="page-title">거래 추가</h2>
+                <div class="card form-card">
+                    <form id="transaction-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tx-type">거래 유형</label>
+                                <select id="tx-type" required>
+                                    <option value="buy">매수</option>
+                                    <option value="sell">매도</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="tx-date">거래일</label>
+                                <input type="date" id="tx-date" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tx-ticker">종목코드 (Ticker)</label>
+                                <input type="text" id="tx-ticker" placeholder="예: SPY, QQQ, VOO" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="tx-name">종목명</label>
+                                <input type="text" id="tx-name" placeholder="예: S&P 500 ETF">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tx-currency">통화</label>
+                                <select id="tx-currency">
+                                    <option value="USD">USD ($)</option>
+                                    <option value="KRW">KRW (₩)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tx-quantity">수량 (주)</label>
+                                <input type="number" id="tx-quantity" step="0.0001" min="0.0001" placeholder="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="tx-price">단가</label>
+                                <input type="number" id="tx-price" step="0.01" min="0" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tx-fee">수수료</label>
+                                <input type="number" id="tx-fee" step="0.01" min="0" value="0" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <label for="tx-total">총 거래금액</label>
+                                <input type="text" id="tx-total" readonly class="computed-field">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label for="tx-memo">메모</label>
+                                <input type="text" id="tx-memo" placeholder="거래에 대한 메모 (선택사항)">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary btn-large">거래 등록</button>
+                            <button type="reset" class="btn-secondary btn-large">초기화</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 현재가 업데이트 모달 -->
+    <div id="modal-price" class="modal" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>현재가 업데이트</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="price-update-form">
+                <!-- 동적으로 생성 -->
+            </div>
+            <div class="modal-footer">
+                <button id="btn-save-prices" class="btn-primary">저장</button>
+                <button class="btn-secondary modal-close">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 거래 수정 모달 -->
+    <div id="modal-edit-tx" class="modal" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>거래 수정</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-transaction-form">
+                    <input type="hidden" id="edit-tx-id">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>거래 유형</label>
+                            <select id="edit-tx-type" required>
+                                <option value="buy">매수</option>
+                                <option value="sell">매도</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>거래일</label>
+                            <input type="date" id="edit-tx-date" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>종목코드</label>
+                            <input type="text" id="edit-tx-ticker" required>
+                        </div>
+                        <div class="form-group">
+                            <label>종목명</label>
+                            <input type="text" id="edit-tx-name">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>통화</label>
+                            <select id="edit-tx-currency">
+                                <option value="USD">USD ($)</option>
+                                <option value="KRW">KRW (₩)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>수량</label>
+                            <input type="number" id="edit-tx-quantity" step="0.0001" min="0.0001" required>
+                        </div>
+                        <div class="form-group">
+                            <label>단가</label>
+                            <input type="number" id="edit-tx-price" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>수수료</label>
+                            <input type="number" id="edit-tx-fee" step="0.01" min="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label>메모</label>
+                            <input type="text" id="edit-tx-memo">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-save-edit-tx" class="btn-primary">저장</button>
+                <button class="btn-secondary modal-close">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/portfolio.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
